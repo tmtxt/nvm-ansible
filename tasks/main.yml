@@ -1,0 +1,70 @@
+---
+- name: install nvm dependencies
+  sudo: yes
+  apt: pkg={{ item }}
+  with_items:
+    - git
+    - curl
+    - build-essential
+    - libssl-dev
+
+- name: check if nvm installed
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  stat: path=~/.nvm
+  register: nvm_path
+  changed_when: False
+
+- name: install nvm
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  git: repo=https://github.com/creationix/nvm.git dest=~/.nvm
+  when: not nvm_path.stat.exists
+  tags: nvm
+
+- name: source nvm in ~/.profile
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  lineinfile: >
+    dest=~/.profile
+    line="source ~/.nvm/nvm.sh"
+  tags: nvm
+
+- name: check installed node version
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  command: bash -c '. ~/.nvm/nvm.sh; nvm ls'
+  register: nvm_install_result
+  changed_when: False
+  ignore_errors: True
+
+- name: install nodejs using nvm
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  command: bash -c '. ~/.nvm/nvm.sh; nvm install {{ nvm_node_version }}'
+  when: nvm_install_result|failed or nvm_install_result.stdout.find('{{nvm_node_version}}') == -1
+  tags: nvm
+
+- name: check the default nodejs version
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  command: bash -c '. ~/.nvm/nvm.sh; nvm ls | grep -e "default -> {{nvm_node_version}}"'
+  register: nvm_check_default
+  changed_when: False
+  ignore_errors: True
+  tags: nvm
+
+- name: set default node version
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  command: bash -c '. ~/.nvm/nvm.sh; nvm alias default {{nvm_node_version}}'
+  when: nvm_check_default|failed
+  tags: nvm
+
+- name: install nodejs tools
+  sudo: yes
+  sudo_user: "{{nvm_user}}"
+  npm: name={{item}} executable=~/.nvm/v{{nvm_node_version}}/bin/npm global=yes
+  with_items:
+    - "{{nvm_node_apps}}"
+  when: nvm_install_node_apps and nvm_node_apps is defined
