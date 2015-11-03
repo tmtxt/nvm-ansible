@@ -1,3 +1,4 @@
 ---
 nvm_user: "{{remote_user}}"
-nvm_node_version: '0.11.14'
+nvm_version: "v0.29.0"
+nvm_node_version: "5.0.0"
